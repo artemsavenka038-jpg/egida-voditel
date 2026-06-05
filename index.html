@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fletera · Водитель — Egida-Trans</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root{ --bg:#07090f; --bg2:#0b1018; --bg3:#11182400; --card:#0e1521; --border:#1a2436; --border2:#26344d;
+    --text:#e9eff8; --text2:#9fb0c8; --text3:#5b6c87; --accent:#4f8cff; --accent2:#22d3ee; }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  body{margin:0; background:var(--bg); color:var(--text); font-family:Manrope,system-ui,Arial,sans-serif;
+    background-image:radial-gradient(900px 500px at 50% -10%, rgba(79,140,255,.10), transparent 60%);}
+  .wrap{max-width:480px; margin:0 auto; padding:16px 14px 40px;}
+  .brand{display:flex; align-items:center; gap:10px; justify-content:center; margin:8px 0 18px;}
+  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+    display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 6px 20px rgba(79,140,255,.35);}
+  .wm{font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:22px;letter-spacing:-.5px;}
+  .wm small{display:block;font-family:Manrope;font-weight:600;font-size:10px;letter-spacing:1px;color:var(--text3);}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; margin-bottom:14px;
+    box-shadow:0 8px 28px rgba(0,0,0,.35);}
+  .lbl{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:7px;}
+  .inp{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:14px;
+    color:var(--text);font-size:22px;text-align:center;letter-spacing:6px;font-weight:800;font-family:inherit;}
+  .btn{width:100%;border:none;border-radius:13px;padding:15px;color:#fff;font-size:16px;font-weight:800;cursor:pointer;
+    font-family:inherit;background:linear-gradient(135deg,var(--accent),var(--accent2));}
+  .btn:disabled{opacity:.55;}
+  .sbtn{width:100%;border-radius:13px;padding:15px 16px;font-size:15.5px;font-weight:800;cursor:pointer;text-align:left;
+    font-family:inherit;display:flex;align-items:center;gap:12px;transition:transform .1s ease, filter .12s ease;}
+  .sbtn:active{transform:scale(.985);}
+  .sbtn .dot{width:11px;height:11px;border-radius:999px;flex-shrink:0;}
+  .pill{display:inline-flex;align-items:center;gap:6px;padding:6px 13px;border-radius:999px;font-weight:800;font-size:12.5px;}
+  .row{font-size:13.5px;color:var(--text2);margin:3px 0;line-height:1.5;}
+  .row b{color:var(--text);}
+  .muted{color:var(--text3);font-size:11.5px;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#0e1c12;border:1px solid #1f7a3f;
+    color:#86efac;padding:11px 18px;border-radius:12px;font-weight:700;font-size:13.5px;z-index:50;box-shadow:0 8px 24px rgba(0,0,0,.4);}
+  .center{min-height:60vh;display:flex;align-items:center;justify-content:center;color:var(--text3);}
+  .link{background:none;border:none;color:var(--text3);font-size:12.5px;text-decoration:underline;cursor:pointer;font-family:inherit;}
+  .err{color:#fca5a5;font-size:12.5px;margin-top:8px;text-align:center;}
+  .msgbox{background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:10px;
+    padding:11px 12px;white-space:pre-wrap;font-size:13px;color:var(--text2);line-height:1.55;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<script>
+/* ===== Fletera driver app — same Firebase base as dispatcher (egida-transapp) ===== */
+var DB_URL = "https://egida-transapp-default-rtdb.europe-west1.firebasedatabase.app";
+function dbGet(p){ return fetch(DB_URL+p+".json").then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}); }
+function dbPatch(p,d){ return fetch(DB_URL+p+".json",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); }
+
+var h = React.createElement;
+var useState = React.useState, useEffect = React.useEffect;
+
+function nowISO(){ var d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); }
+function fmt(s){ if(!s) return ""; var d=new Date(s); if(isNaN(d)) return s;
+  return d.toLocaleDateString('ru',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('ru',{hour:'2-digit',minute:'2-digit'}); }
+function findKey(data,code){ if(!data) return null; var ks=Object.keys(data);
+  for(var i=0;i<ks.length;i++){ var t=data[ks[i]]; if(t && String(t.pin)===String(code).trim()) return ks[i]; } return null; }
+
+/* driver events -> statuses the dispatcher understands (so it shows proper labels) */
+var STATUSES = [
+  { key:'at_load',        label:'Выехал на загрузку',     status:'AT_LOAD',        color:'#f59e0b' },
+  { key:'arrived_load',   label:'Приехал на загрузку',    status:'ARRIVED_LOAD',   color:'#f59e0b' },
+  { key:'loading',        label:'Начали грузить',         status:'LOADING',        color:'#fb923c' },
+  { key:'loaded',         label:'Загрузился',             status:'LOADED',         color:'#22c55e' },
+  { key:'to_unload',      label:'Выехал на выгрузку',     status:'AT_UNLOAD',      color:'#a78bfa' },
+  { key:'arrived_unload', label:'Приехал на выгрузку',    status:'ARRIVED_UNLOAD', color:'#a78bfa' },
+  { key:'unloaded',       label:'Выгрузился',             status:'UNLOADED',       color:'#22c55e' },
+  { key:'to_back',        label:'Выехал за обраткой',     status:'BACK_GO',        color:'#06b6d4' },
+  { key:'back_loaded',    label:'Загрузил обратный груз', status:'BACK',           color:'#06b6d4' },
+  { key:'done',           label:'Завершил рейс (свободен)', status:'FREE',         color:'#22c55e' },
+  { key:'problem',        label:'Проблема!',              status:'PROBLEM',        color:'#ef4444' }
+];
+var ST_LABELS = { FREE:'Свободна', FORWARD:'В рейсе', LOADED:'Загружен', BACK:'Обратный',
+  AT_LOAD:'Едет на загрузку', ARRIVED_LOAD:'На загрузке', LOADING:'Грузится',
+  AT_UNLOAD:'Едет на выгрузку', ARRIVED_UNLOAD:'На выгрузке', UNLOADED:'Выгрузился',
+  BACK_GO:'За обраткой', PROBLEM:'Проблема', SERVICE:'Сервис' };
+var ST_COLORS = { FREE:'#34d399', FORWARD:'#4f8cff', LOADED:'#34d399', BACK:'#22d3ee',
+  AT_LOAD:'#f59e0b', ARRIVED_LOAD:'#f59e0b', LOADING:'#fb923c', AT_UNLOAD:'#a78bfa',
+  ARRIVED_UNLOAD:'#a78bfa', UNLOADED:'#34d399', BACK_GO:'#22d3ee', PROBLEM:'#ef4444', SERVICE:'#fb923c' };
+
+function Brand(){
+  return h('div',{className:'brand'},
+    h('div',{className:'logo'},'🚚'),
+    h('div',{className:'wm'}, 'Fle', h('span',{style:{color:'#22d3ee'}},'tera'),
+      h('small',null,'ВОДИТЕЛЬ · Egida-Trans')));
+}
+
+function Login(props){
+  var st=useState(''); var code=st[0], setCode=st[1];
+  var es=useState(''); var err=es[0], setErr=es[1];
+  var bs=useState(false); var busy=bs[0], setBusy=bs[1];
+  function go(){
+    var c=(code||'').trim(); if(!c) return;
+    setBusy(true); setErr('');
+    dbGet('/trucks').then(function(d){
+      setBusy(false);
+      var k=findKey(d,c);
+      if(k) props.onFound(k); else setErr('Неверный код. Спросите у диспетчера.');
+    }).catch(function(){ setBusy(false); setErr('Нет связи с сервером. Проверьте интернет.'); });
+  }
+  return h('div',{className:'wrap'},
+    h(Brand,null),
+    h('div',{className:'card'},
+      h('div',{className:'lbl',style:{textAlign:'center'}},'Введите ваш код'),
+      h('input',{className:'inp',inputMode:'numeric',placeholder:'0000',value:code,
+        onChange:function(e){setCode(e.target.value);},
+        onKeyDown:function(e){if(e.key==='Enter')go();},autoFocus:true}),
+      err?h('div',{className:'err'},err):null,
+      h('div',{style:{height:14}}),
+      h('button',{className:'btn',disabled:busy,onClick:go}, busy?'Проверяю…':'Войти'),
+      h('div',{style:{marginTop:14,textAlign:'center'}},
+        h('div',{className:'muted'},'Код выдаёт диспетчер. Он же приходит в сообщении со ссылкой.'))));
+}
+
+function DriverPage(props){
+  var key=props.truckKey;
+  var ts=useState(null); var truck=ts[0], setTruck=ts[1];
+  var ls=useState(false); var loaded=ls[0], setLoaded=ls[1];
+  var ss=useState(''); var sending=ss[0], setSending=ss[1];
+  var os=useState(''); var toast=os[0], setToast=os[1];
+
+  function load(){ return dbGet('/trucks/'+key).then(function(t){ setTruck(t||null); setLoaded(true); }); }
+  useEffect(function(){ load(); },[key]);
+  useEffect(function(){ var iv=setInterval(function(){ dbGet('/trucks/'+key).then(function(t){ if(t) setTruck(t); }); },15000);
+    return function(){ clearInterval(iv); }; },[key]);
+
+  function mark(s){
+    setSending(s.key);
+    dbPatch('/trucks/'+key,{ status:s.status, lastEvent:s.label, lastTime:nowISO(), driverKey:s.key })
+      .then(function(){ setToast('Отправлено: '+s.label); return load(); })
+      .then(function(){ setSending(''); setTimeout(function(){ setToast(''); },2600); })
+      .catch(function(){ setSending(''); setToast('Ошибка связи — попробуйте ещё раз'); setTimeout(function(){ setToast(''); },2600); });
+  }
+
+  if(!loaded) return h('div',{className:'center'},'Загрузка…');
+  if(!truck) return h('div',{className:'wrap'}, h(Brand,null),
+    h('div',{className:'card'}, h('div',{className:'row'},'Машина не найдена. Попросите у диспетчера новый код.'),
+      h('div',{style:{height:12}}), h('button',{className:'link',onClick:props.onExit},'← Ввести другой код')));
+
+  var stColor = ST_COLORS[truck.status] || '#5b6c87';
+  var stLabel = ST_LABELS[truck.status] || truck.status || '—';
+  var bc = truck.backCargo;
+
+  return h('div',{className:'wrap'},
+    h(Brand,null),
+    // current status + truck
+    h('div',{className:'card'},
+      h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',gap:10,marginBottom:6}},
+        h('div',{style:{fontWeight:800,fontSize:18}}, truck.plate||'—'),
+        h('span',{className:'pill',style:{background:'rgba(127,127,127,.12)',border:'1px solid '+stColor+'66',color:stColor}},
+          h('span',{className:'dot',style:{background:stColor}}), stLabel)),
+      h('div',{className:'row'}, '👤 ', h('b',null, truck.driver||'—')),
+      truck.lastEvent?h('div',{className:'muted',style:{marginTop:4}},'Последняя отметка: '+truck.lastEvent+(truck.lastTime?(' · '+fmt(truck.lastTime)):'')):null),
+
+    // task
+    (truck.clientName||truck.loadAddr||truck.unloadAddr||truck.driverMsg)?h('div',{className:'card'},
+      h('div',{className:'lbl'},'Текущее задание'),
+      truck.clientName?h('div',{className:'row'},'🏢 ', h('b',null,truck.clientName)):null,
+      truck.loadAddr?h('div',{className:'row'},'📍 Загрузка: ', h('b',null,truck.loadAddr)):null,
+      truck.unloadAddr?h('div',{className:'row'},'🎯 Выгрузка: ', h('b',null,truck.unloadAddr)):null,
+      truck.driverMsg?h('div',{style:{marginTop:9}}, h('div',{className:'lbl'},'Сообщение диспетчера'),
+        h('div',{className:'msgbox'}, truck.driverMsg)):null):null,
+
+    // return cargo
+    bc?h('div',{className:'card',style:{borderLeft:'3px solid #22d3ee'}},
+      h('div',{className:'lbl',style:{color:'#22d3ee'}},'Обратный груз'),
+      bc.cargo?h('div',{className:'row'},'📦 ', h('b',null,bc.cargo)):null,
+      bc.from?h('div',{className:'row'},'📍 Загрузка: ', h('b',null,bc.from)):null,
+      bc.to?h('div',{className:'row'},'🎯 Выгрузка: ', h('b',null,bc.to)):null,
+      bc.departAt?h('div',{className:'row'},'🕐 Отправление: ', h('b',null,fmt(bc.departAt))):null):null,
+
+    // status buttons
+    h('div',{className:'card'},
+      h('div',{className:'lbl'},'Отметить статус'),
+      h('div',{style:{display:'flex',flexDirection:'column',gap:10}},
+        STATUSES.map(function(s){
+          var active = truck.status===s.status;
+          return h('button',{key:s.key,className:'sbtn',disabled:!!sending,onClick:function(){ mark(s); },
+            style:{ background: active? (s.color+'22') : 'var(--bg2)',
+              border:'1px solid '+(active? s.color : 'var(--border2)'),
+              color: active? s.color : 'var(--text)', opacity: sending&&sending!==s.key?0.5:1 }},
+            h('span',{className:'dot',style:{background:s.color}}),
+            h('span',null, s.label),
+            sending===s.key?h('span',{style:{marginLeft:'auto',fontSize:12,color:'var(--text3)'}},'…'):
+              (active?h('span',{style:{marginLeft:'auto',fontSize:12}},'✓'):null));
+        }))),
+
+    h('div',{style:{textAlign:'center',marginTop:4}},
+      h('button',{className:'link',onClick:props.onExit},'← Выйти / другой код')),
+
+    toast?h('div',{className:'toast'}, toast):null);
+}
+
+function App(){
+  var ks=useState(null); var truckKey=ks[0], setTruckKey=ks[1];
+  var rs=useState(true); var resolving=rs[0], setResolving=rs[1];
+  useEffect(function(){
+    var pin=null; try{ pin=new URLSearchParams(window.location.search).get('pin'); }catch(e){}
+    if(pin){ dbGet('/trucks').then(function(d){ setTruckKey(findKey(d,pin)); setResolving(false); })
+      .catch(function(){ setResolving(false); }); }
+    else setResolving(false);
+  },[]);
+  if(resolving) return h('div',{className:'center'},'Загрузка…');
+  if(!truckKey) return h(Login,{onFound:setTruckKey});
+  return h(DriverPage,{truckKey:truckKey,onExit:function(){
+    setTruckKey(null);
+    try{ window.history.replaceState(null,'',window.location.pathname); }catch(e){}
+  }});
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(h(App));
+</script>
+</body>
+</html>
